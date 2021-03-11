@@ -1,5 +1,5 @@
 
 
-.body-initial {background-color: rgba(255,255,255,1); position: static; background-image: url(../assets/3a0b40d96c53860572a1c29970ce14a8.gif);}@media only screen and (max-width: 480px) {}
-.text-element > .silex-element-content {font-family: 'Roboto', sans-serif;}
-.website-width {width: 1200px;}@media (min-width: 481px) {.silex-editor {min-width: 1400px;}}body.silex-runtime {opacity: 1;}
+.body-initial {background-color: rgba(255,255,255,1); position: static; background-image: url(../assets/3a0b40d96c53860572a1c29970ce14a8.gif);}.silex-id-1615496856525-1 {width: 289px; min-height: 152px; position: absolute; top: 54px; left: 707px; background-color: transparent;}@media only screen and (max-width: 480px) {}
+.website-width {width: 1200px;}@media (min-width: 481px) {.silex-editor {min-width: 1400px;}}
+.text-element > .silex-element-content {font-family: 'Roboto', sans-serif; font-size: 30px; color: #ffffff; text-align: center;}body.silex-runtime {opacity: 1;}
