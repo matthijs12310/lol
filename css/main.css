@@ -1,6 +1,23 @@
 html{
     background-color: black;
 }
-h1{
+h1, h2, h3{
     color: white;
+    font-family: 'Rajdhani', sans-serif;
 }
+#myVideo {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    min-width: 100%;
+    min-height: 100%;
+}
+}
+.welcome{
+    position: fixed;
+    color: white;
+    width: 100%;
+}
+.fade-in{-webkit-animation:fade-in 1.5s cubic-bezier(.39,.575,.565,1.000) both;animation:fade-in 1.5s cubic-bezier(.39,.575,.565,1.000) both}
+.fade-in-2{-webkit-animation:fade-in 1.5s cubic-bezier(.39,.575,.565,1.000) both;animation:fade-in 1.5s cubic-bezier(.39,.575,.565,1.000) both; animation-delay: 1s;}
+@-webkit-keyframes fade-in{0%{opacity:0}100%{opacity:1}}@keyframes fade-in{0%{opacity:0}100%{opacity:1}}
