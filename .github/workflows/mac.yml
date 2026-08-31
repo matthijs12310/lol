@@ -1,6 +1,4 @@
-​name: macOS Remote Desktop (VNC)
-​
-on:
+​on:
   workflow_dispatch:
     inputs:
       runner_label:
