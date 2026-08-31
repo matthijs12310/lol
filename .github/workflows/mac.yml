@@ -6,7 +6,7 @@ on:
       runner_label:
         description: "Build Hub machine pool label"
         required: true
-        default: "g2.mac.m4.5c-14g"
+        default: "bitrise-runner-testing"
       minutes:
         description: "Minutes to stay alive"
         required: true
