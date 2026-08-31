@@ -1,0 +1,22 @@
+name: "Hello Build Hub"
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: "Build Hub machine pool label"
+        required: true
+        default: "bitrise-runner-testing"
+
+jobs:
+  hello:
+    runs-on: "${{ inputs.runner_label }}"
+    timeout-minutes: 15
+    steps:
+      - name: "Say hello"
+        run: |
+          echo "It works."
+          echo "runner: $(hostname)"
+          echo "user:   $(whoami)"
+          echo "arch:   $(uname -m)"
+          sw_vers

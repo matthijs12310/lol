@@ -1,0 +1,79 @@
+name: "Probe and Hold"
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: "Build Hub machine pool label"
+        required: true
+        default: "bitrise-runner-testing"
+      minutes:
+        description: "Minutes to hold the machine open"
+        required: true
+        default: "30"
+
+jobs:
+  probe:
+    runs-on: "${{ inputs.runner_label }}"
+    timeout-minutes: 360
+    steps:
+      - name: "Identity and privileges"
+        run: |
+          echo "--- whoami ---"
+          whoami
+          id
+          echo "--- sudo ---"
+          if sudo -n true 2>/dev/null; then echo "passwordless sudo: YES"; else echo "passwordless sudo: NO"; fi
+          echo "--- os ---"
+          sw_vers
+          uname -a
+
+      - name: "Hardware and disk"
+        run: |
+          sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "cpu brand unavailable"
+          echo "cores: $(sysctl -n hw.ncpu)"
+          echo "memory bytes: $(sysctl -n hw.memsize)"
+          df -h /
+
+      - name: "Screen sharing state"
+        run: |
+          echo "--- screensharing service ---"
+          sudo launchctl list 2>/dev/null | grep -i screensharing || echo "screensharing NOT loaded"
+          echo "--- listeners on 5900 ---"
+          lsof -nP -i TCP:5900 2>/dev/null || echo "nothing listening on 5900"
+          echo "--- remote management prefs ---"
+          ls -la /Library/Preferences/com.apple.RemoteManagement.plist 2>/dev/null || echo "RemoteManagement.plist absent"
+          ls -la /Library/Preferences/com.apple.VNCSettings.txt 2>/dev/null || echo "VNCSettings.txt absent"
+
+      - name: "Network egress"
+        run: |
+          echo "--- public ip ---"
+          curl -s --max-time 10 https://api.ipify.org || echo "no egress"
+          echo
+          echo "--- outbound 443 to ngrok ---"
+          if nc -z -w 5 connect.ngrok-agent.com 443 2>/dev/null; then echo "ngrok 443 REACHABLE"; else echo "ngrok 443 BLOCKED"; fi
+          echo "--- outbound 22 ---"
+          if nc -z -w 5 github.com 22 2>/dev/null; then echo "port 22 outbound OK"; else echo "port 22 outbound blocked"; fi
+
+      - name: "Tooling"
+        run: |
+          echo "xcode: $(xcode-select -p 2>/dev/null || echo none)"
+          echo "python3: $(python3 --version 2>&1 || echo none)"
+          for t in curl unzip perl nc ssh sysadminctl; do
+            printf '%s: %s\n' "$t" "$(command -v $t || echo MISSING)"
+          done
+          echo "--- applications ---"
+          ls /Applications 2>/dev/null | head -40
+
+      - name: "Hold the machine open"
+        env:
+          MINUTES: "${{ inputs.minutes }}"
+        run: |
+          echo "Holding this runner for $MINUTES minutes."
+          echo "Cancel the job, or touch /tmp/done, to release it early."
+          for i in $(seq 1 "$MINUTES"); do
+            if [ -f /tmp/done ]; then echo "released early"; exit 0; fi
+            echo "alive: minute $i of $MINUTES"
+            sleep 60
+          done
+          echo "hold finished"
