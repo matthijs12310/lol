@@ -1,0 +1,33 @@
+name: "Sleep"
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: "Build Hub machine pool label"
+        required: true
+        default: "bitrise-runner-testing"
+      minutes:
+        description: "Minutes to stay alive"
+        required: true
+        default: "240"
+
+jobs:
+  sleep:
+    runs-on: "${{ inputs.runner_label }}"
+    timeout-minutes: 300
+    steps:
+      - name: "Sleep"
+        env:
+          MINUTES: "${{ inputs.minutes }}"
+        run: |
+          echo "host: $(hostname)"
+          echo "user: $(whoami)"
+          echo "holding for $MINUTES minutes"
+          echo "touch /tmp/done to release early, or cancel the job"
+          for i in $(seq 1 "$MINUTES"); do
+            if [ -f /tmp/done ]; then echo "released early"; exit 0; fi
+            echo "alive: minute $i of $MINUTES"
+            sleep 60
+          done
+          echo "done"
