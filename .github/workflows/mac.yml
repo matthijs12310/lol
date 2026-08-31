@@ -1,4 +1,6 @@
-​on:
+name: "macOS Remote Desktop"
+
+on:
   workflow_dispatch:
     inputs:
       runner_label:
@@ -6,94 +8,67 @@
         required: true
         default: "bitrise-m4-pro"
       minutes:
-        description: "How long to keep the desktop alive (max 360)"
+        description: "Minutes to stay alive"
         required: true
         default: "60"
-​
+
 jobs:
   desktop:
-    # Routes this job to your Bitrise Build Hub machines instead of GitHub's.
-    runs-on: ${{ inputs.runner_label }}
+    runs-on: "${{ inputs.runner_label }}"
     timeout-minutes: 360
-​
     steps:
-      - name: Create the VNC user
+      - name: "Create VNC user"
         env:
-          VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
+          VNC_PASSWORD: "${{ secrets.VNC_PASSWORD }}"
         run: |
-          # We cannot reuse the CI user: macOS SecureToken blocks `passwd`
-          # for it, even as root. So we make our own admin account instead.
           if ! id vncuser >/dev/null 2>&1; then
-            sudo sysadminctl -addUser vncuser \
-              -fullName "VNC User" \
-              -password "$VNC_PASSWORD" \
-              -admin
+            sudo sysadminctl -addUser vncuser -fullName "VNC User" -password "$VNC_PASSWORD" -admin
             sleep 5
           fi
           echo "vncuser ready"
-​
-      - name: Enable Screen Sharing
+
+      - name: "Enable Screen Sharing"
         run: |
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate -configure -access -on \
-            -users vncuser -privs -all \
-            -restart -agent
-          echo "Screen Sharing enabled"
-​
-      - name: Set the VNC-only password
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -users vncuser -privs -all -restart -agent
+          echo "screen sharing enabled"
+
+      - name: "Set VNC password"
         env:
-          VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
+          VNC_PASSWORD: "${{ secrets.VNC_PASSWORD }}"
         run: |
-          # Writes the obfuscated password file Apple's VNC server reads.
-          # This lets non-Apple clients (RealVNC, TigerVNC) authenticate.
-          printf '%s' "$VNC_PASSWORD" | perl -we '
-            BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39567390ADCA" }
-            my $pw = <STDIN>;
-            $pw = "" unless defined $pw;
-            chomp $pw;
-            $pw .= "\0" x (8 - length $pw);
-            foreach (unpack("C*", $pw)) { printf "%02X", $_ ^ (shift @k) }
-            print "\n";
-          ' | sudo tee /Library/Preferences/com.apple.VNCSettings.txt >/dev/null
+          printf '%s' "$VNC_PASSWORD" > /tmp/vncpw.txt
+          perl -we 'BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39567390ADCA" } open(F, "<", "/tmp/vncpw.txt"); my $pw = <F>; $pw = "" unless defined $pw; chomp $pw; $pw .= chr(0) x (8 - length $pw); foreach (unpack("C*", $pw)) { printf "%02X", $_ ^ (shift @k) } print chr(10);' | sudo tee /Library/Preferences/com.apple.VNCSettings.txt >/dev/null
           sudo chmod 644 /Library/Preferences/com.apple.VNCSettings.txt
-          echo "VNC password set"
-​
-      - name: Start the ngrok tunnel
+          rm -f /tmp/vncpw.txt
+          echo "vnc password set"
+
+      - name: "Start tunnel"
         env:
-          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+          NGROK_AUTHTOKEN: "${{ secrets.NGROK_AUTHTOKEN }}"
         run: |
           set -e
           if ! command -v ngrok >/dev/null 2>&1; then
-            curl -sSL -o /tmp/ngrok.zip \
-              https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-arm64.zip
+            curl -sSL -o /tmp/ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-arm64.zip
             unzip -o -q /tmp/ngrok.zip -d /tmp
             sudo mv /tmp/ngrok /usr/local/bin/ngrok
           fi
           ngrok config add-authtoken "$NGROK_AUTHTOKEN"
-          # Background it, or the workflow would block here forever.
           nohup ngrok tcp 5900 --log=stdout > /tmp/ngrok.log 2>&1 &
           sleep 10
-​
-      - name: Connection details
+
+      - name: "Connection details"
         run: |
-          URL=$(curl -s http://127.0.0.1:4040/api/tunnels \
-            | python3 -c 'import sys,json; print(json.load(sys.stdin)["tunnels"][0]["public_url"])')
-          HOSTPORT=${URL#tcp://}
-          echo "============================================="
-          echo "  Connect with:  vnc://vncuser@$HOSTPORT"
-          echo "  Host/port:     $HOSTPORT"
-          echo "  Username:      vncuser"
-          echo "  Password:      your VNC_PASSWORD secret"
-          echo "============================================="
-​
-      - name: Keep the desktop alive
+          URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c 'import sys,json; print(json.load(sys.stdin)["tunnels"][0]["public_url"])')
+          echo "========================================="
+          echo "connect to: vnc://vncuser@${URL#tcp://}"
+          echo "username: vncuser"
+          echo "========================================="
+
+      - name: "Keep alive"
+        env:
+          MINUTES: "${{ inputs.minutes }}"
         run: |
-          MINUTES=${{ inputs.minutes }}
-          echo "Holding for $MINUTES minutes."
-          echo "Finish early by cancelling the job, or run this on the Mac:"
-          echo "  touch /tmp/done"
-          for i in $(seq 1 $((MINUTES * 6))); do
-            if [ -f /tmp/done ]; then echo "Released early."; exit 0; fi
+          for i in $(seq 1 $(( MINUTES * 6 ))); do
+            if [ -f /tmp/done ]; then echo "released"; exit 0; fi
             sleep 10
           done
-​
